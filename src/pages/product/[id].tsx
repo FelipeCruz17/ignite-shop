@@ -1,10 +1,11 @@
-import axios from 'axios'
 import { GetStaticPaths, GetStaticProps } from 'next'
 import Image from 'next/future/image'
 import Head from 'next/head'
-import { useState } from 'react'
+import { useRouter } from 'next/router'
 
 import Stripe from 'stripe'
+import { IProduct } from '../../context/CartContext'
+import { useCart } from '../../hooks/useCart'
 import { stripe } from '../../lib/stripe'
 import {
   ImageContainer,
@@ -13,41 +14,19 @@ import {
 } from '../../styles/pages/product'
 
 interface ProductProps {
-  product: {
-    id: string
-    name: string
-    imageUrl: string
-    price: string
-    description: string
-    defaultPriceId: string
-  }
+  product: IProduct
 }
 
 export default function Products({ product }: ProductProps) {
-  const [isCreatingCheckoutSession, setIsCreatingCheckoutSession] =
-    useState(false)
-  // const router = useRouter()
-  // para redirecionar para rotas internas da nossa aplicação
+  const { isFallback } = useRouter()
 
-  async function handleBuyProduct() {
-    try {
-      setIsCreatingCheckoutSession(true)
-      const response = await axios.post('/api/checkout', {
-        priceId: product.defaultPriceId,
-      })
+  const { checkIfItemAlreadyExists, addToCart } = useCart()
 
-      const { checkoutUrl } = response.data
-
-      // router.push('/checkout')
-      // para redirecionar para rotas internas da nossa aplicação
-
-      window.location.href = checkoutUrl
-      // redirecionar para rotas externas, por exemplo, stripe
-    } catch (err) {
-      setIsCreatingCheckoutSession(false)
-      alert('Falha ao redirecionar')
-    }
+  if (isFallback) {
+    return <p>Loading...</p>
   }
+
+  const itemAlreadyExists = checkIfItemAlreadyExists(product.id)
 
   return (
     <>
@@ -68,10 +47,12 @@ export default function Products({ product }: ProductProps) {
           <span>{product.price}</span>
           <p>{product.description}</p>
           <button
-            disabled={isCreatingCheckoutSession}
-            onClick={handleBuyProduct}
+            disabled={itemAlreadyExists}
+            onClick={() => addToCart(product)}
           >
-            Comprar agora
+            {itemAlreadyExists
+              ? 'Produto está no carrinho'
+              : 'Colocar na sacola'}
           </button>
         </ProductDetails>
       </ProductContainer>
@@ -113,6 +94,7 @@ export const getStaticProps: GetStaticProps<any, { id: string }> = async ({
           style: 'currency',
           currency: 'BRL',
         }).format(price.unit_amount! / 100),
+        numberPrice: price.unit_amount! / 100,
         description: product.description,
         defaultPriceId: price.id,
       },

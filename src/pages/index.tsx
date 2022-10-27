@@ -1,3 +1,4 @@
+import { MouseEvent } from 'react'
 import Stripe from 'stripe'
 import Image from 'next/future/image'
 import Link from 'next/link'
@@ -10,23 +11,31 @@ import { HomeContainer, Product } from '../styles/pages/home'
 import { useKeenSlider } from 'keen-slider/react'
 
 import 'keen-slider/keen-slider.min.css'
+import { CartButton } from '../components/CartButton'
+import { useCart } from '../hooks/useCart'
+import { IProduct } from '../context/CartContext'
 
 interface HomeProps {
-  products: {
-    id: string
-    name: string
-    imageUrl: string
-    price: string
-  }[]
+  products: IProduct[]
 }
 
 export default function Home({ products }: HomeProps) {
+  const { addToCart, checkIfItemAlreadyExists } = useCart()
+
   const [sliderRef] = useKeenSlider({
     slides: {
       perView: 3,
       spacing: 48,
     },
   })
+
+  function handleAddToCart(
+    event: MouseEvent<HTMLButtonElement>,
+    product: IProduct,
+  ) {
+    event.preventDefault()
+    addToCart(product)
+  }
 
   return (
     <>
@@ -44,8 +53,16 @@ export default function Home({ products }: HomeProps) {
               <Product className="keen-slider__slide">
                 <Image src={product.imageUrl} width={520} height={480} alt="" />
                 <footer>
-                  <strong>{product.name}</strong>
-                  <span>{product.price}</span>
+                  <div>
+                    <strong>{product.name}</strong>
+                    <span>{product.price}</span>
+                  </div>
+                  <CartButton
+                    color="green"
+                    size="large"
+                    disabled={checkIfItemAlreadyExists(product.id)}
+                    onClick={(event) => handleAddToCart(event, product)}
+                  />
                 </footer>
               </Product>
             </Link>
@@ -72,6 +89,8 @@ export const getStaticProps: GetStaticProps = async () => {
         style: 'currency',
         currency: 'BRL',
       }).format(price.unit_amount! / 100),
+      numberPrice: price.unit_amount! / 100,
+      defaultPriceId: price.id,
     }
   })
 
